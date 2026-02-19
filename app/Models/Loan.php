@@ -12,7 +12,6 @@ class Loan extends Model
         'fecha_prestamo',
         'fecha_devolucion',
     ];
-
     public function book()
     {
         return $this->belongsTo(Book::class);
