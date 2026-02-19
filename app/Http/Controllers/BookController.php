@@ -2,47 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\BookResource;
+use App\Models\Book;
 use Illuminate\Http\Request;
 
 class BookController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request)
     {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        $books = Book::query()
+            ->when($request->titulo, fn($q) => $q->where('titulo', 'like', "%{$request->titulo}%"))
+            ->when($request->isbn, fn($q) => $q->where('isbn', $request->isbn))
+            ->when($request->has('status'), fn($q) => $q->where('estado', filter_var($request->status, FILTER_VALIDATE_BOOLEAN)))
+            ->get();
+        return BookResource::collection($books);
     }
 }

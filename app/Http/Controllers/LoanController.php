@@ -2,47 +2,59 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\LoanRequest;
+use App\Models\Loan;
+use App\Models\Book;
 
 class LoanController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $loans = Loan::with('book')->get()->map(fn($loan) => [
+            'id'=> $loan->id,
+            'libro'=> $loan->book->titulo,
+            'nombre_solicitante'=> $loan->nombre_solicitante,
+            'fecha_prestamo'=> $loan->fecha_prestamo,
+            'fecha_devolucion'=> $loan->fecha_devolucion,
+            'estado_prestamo'=> $loan->fecha_devolucion ? 'Devuelto' : 'Activo',
+        ]);
+        return response()->json($loans);
     }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(LoanRequest $request)
     {
-        //
+        $book = Book::findOrFail($request->id_libro);
+        if ($book->copias_disponibles <= 0) {
+            return response()->json([
+                'message' => 'Ya no hay libros disponibles'
+            ], 422);
+        }
+        $loan = Loan::create([
+            'book_id'=> $book->id,
+            'nombre_solicitante'=> $request->nombre_solicitante,
+            'fecha_prestamo'=> now(),
+        ]);
+        $book->decrement('copias_disponibles');
+        if ($book->fresh()->copias_disponibles == 0) {
+            $book->update(['estado' => false]);
+        }
+        return response()->json($loan, 201);
     }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function returnBook(Loan $loan)
     {
-        //
-    }
+        if ($loan->fecha_devolucion !== null) {
+            return response()->json([
+                'message' => 'Este préstamo ya fue devuelto anteriormente'
+            ], 422);
+        }
+        $loan->update(['fecha_devolucion' => now()]);
+        $book = $loan->book;
+        $book->increment('copias_disponibles');
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        if (!$book->fresh()->estado) {
+            $book->update(['estado' => true]);
+        }
+        return response()->json([
+            'message' => 'Devolución registrada correctamente'
+        ], 200);
     }
 }
